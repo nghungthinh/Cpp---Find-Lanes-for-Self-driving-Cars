@@ -20,8 +20,8 @@ class Lanes
 
         cv::Mat getImglanes();
         cv::Mat getlinesImg(cv::Mat img, std::vector<cv::Vec4i> lines);
-        void average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines);
-        void make_coordinates(cv::Mat img, cv::Point point);
+        std::vector<cv::Vec4i> average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines);
+        cv::Vec4i make_coordinates(cv::Mat img, cv::Point2f point);
 
         void display(cv::Mat img);
 };

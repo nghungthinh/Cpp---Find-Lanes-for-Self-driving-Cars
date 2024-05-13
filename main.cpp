@@ -17,12 +17,12 @@ int main(int argc, char** argv)
 	cv::Mat img = cv::imread(path, 1);
 	cv::Mat canny = lane.Canny();
 	cv::Mat crop_img = lane.RoI(canny);
-
+	
 	std::vector<cv::Vec4i> lines;
 	cv::HoughLinesP(crop_img, lines, 2, M_PI/180, 100, 40, 5);
-	lane.average_slope_intercept(img, lines);
+	std::vector<cv::Vec4i> average_lines = lane.average_slope_intercept(img, lines);
 	
-	cv::Mat lane_lines = lane.getlinesImg(img, lines);
+	cv::Mat lane_lines = lane.getlinesImg(img, average_lines);
 
 	cv::addWeighted(img, 0.8, lane_lines, 1, 1, img);
 	lane.display(img);
@@ -111,13 +111,14 @@ cv::Mat Lanes::getlinesImg(cv::Mat img, std::vector<cv::Vec4i> lines)
 		// std::cout << line[2] << " - " << line[3];
 		// std::cout << "\n";
     }
+	// cv::line(lane_lines, cv::Point(998, 704), cv::Point(617, 422), cv::Scalar(255, 0, 0), 5);
 
 	return lane_lines;
 }
 
-void Lanes::average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines)
+std::vector<cv::Vec4i> Lanes::average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines)
 {
-	std::vector<float> left_fit, right_fit;
+	cv::Vec4i left_fit, right_fit;
 	std::vector<cv::Point> left_average, right_average;
 	std::vector<float> left_slopes, right_slopes, left_intercepts, right_intercepts;
 	cv::Vec4f fitLine;
@@ -171,24 +172,28 @@ void Lanes::average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines)
     std::cout << "Left Lane: Avg Slope=" << left_avg_slope << ", Avg Intercept=" << left_avg_intercept << std::endl;
     std::cout << "Right Lane: Avg Slope=" << right_avg_slope << ", Avg Intercept=" << right_avg_intercept << std::endl;
 	
-	make_coordinates(img, cv::Point(left_avg_slope, left_avg_intercept));
-	// make_coordinates(img, cv::Point(right_avg_slope, right_avg_intercept));
+	left_fit = make_coordinates(img, cv::Point2f(left_avg_slope, left_avg_intercept));
+	std::cout << left_fit[0] << "-" << left_fit[1] << " "<< left_fit[2] << "-" << left_fit[3] << "\n";
+	right_fit = make_coordinates(img, cv::Point2f(right_avg_slope, right_avg_intercept));
+	std::cout << right_fit[0] << "-" << right_fit[1] << " "<< right_fit[2] << "-" << right_fit[3] << "\n";
 
+	std::vector<cv::Vec4i> results;
+	results.push_back(left_fit);
+	results.push_back(right_fit);
+	return results;
 }
 
-void Lanes::make_coordinates(cv::Mat img, cv::Point point)
+cv::Vec4i Lanes::make_coordinates(cv::Mat img, cv::Point2f point)
 {
 	int y1 = img.rows;
 	int y2 = int(y1*3/5);
-	int x1 = int((y1-point.y)/point.x);
-	int x2 = int((y2-point.y)/point.x);
-	
-	cv::Mat coor = (cv::Mat_<int>(2, 2) << x1, y1, x2, y2);
-	std::cout << "Print: \n";
-	std::cout << x1 << "-" << y1 << x2 << "-" << y2;
-	// std::cout<< "\n";
-	// std::cout << "Coor: \n";
-	// std::cout << coor;
+	int x1 = int((y1 - point.y) / point.x);
+	int x2 = int((y2 - point.y) / point.x);
+	cv::Vec4i results;
 
-	// return
+	cv::Mat coor = (cv::Mat_<int>(2, 2) << x1, y1, x2, y2);
+	// std::cout << x1 << "-" << y1 << " "<< x2 << "-" << y2 << "\n";
+
+	results = {x1, y1, x2, y2};
+	return results;
 }
