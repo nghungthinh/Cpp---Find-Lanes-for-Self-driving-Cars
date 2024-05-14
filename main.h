@@ -8,9 +8,10 @@ class Lanes
         std::string _path_img;
         cv::Mat _img_lanes;
         
-        cv::Mat Canny();
+        cv::Mat Canny(cv::Mat img);
         cv::Mat RoI(cv::Mat canny);
 
+        Lanes();
         Lanes(std::string path_img, cv::Mat img_lanes);
         Lanes(std::string path_img);
         // ~Lanes();
@@ -22,6 +23,7 @@ class Lanes
         cv::Mat getlinesImg(cv::Mat img, std::vector<cv::Vec4i> lines);
         std::vector<cv::Vec4i> average_slope_intercept(cv::Mat img, std::vector<cv::Vec4i> lines);
         cv::Vec4i make_coordinates(cv::Mat img, cv::Point2f point);
+        void VideoCapture(std::string path);
 
         void display(cv::Mat img);
 };

@@ -13,19 +13,9 @@ int main(int argc, char** argv)
 	} 
 	
 	std::string path = argv[1];
-	Lanes lane(path);
-	cv::Mat img = cv::imread(path, 1);
-	cv::Mat canny = lane.Canny();
-	cv::Mat crop_img = lane.RoI(canny);
 	
-	std::vector<cv::Vec4i> lines;
-	cv::HoughLinesP(crop_img, lines, 2, M_PI/180, 100, 40, 5);
-	std::vector<cv::Vec4i> average_lines = lane.average_slope_intercept(img, lines);
-	
-	cv::Mat lane_lines = lane.getlinesImg(img, average_lines);
-
-	cv::addWeighted(img, 0.8, lane_lines, 1, 1, img);
-	lane.display(img);
+	Lanes lane;
+	lane.VideoCapture(path);
 
 	cv::waitKey(0);
 	return 0; 
@@ -41,6 +31,8 @@ Lanes::Lanes(std::string path_img, cv::Mat img_lanes)
 	this->_path_img = path_img;
 	this->_img_lanes = img_lanes;
 }
+
+Lanes::Lanes(){}
 
 void Lanes::setPath_img(std::string path_img)
 {
@@ -62,23 +54,19 @@ void Lanes::display(cv::Mat img)
 	cv::imshow("Display Image: }", img);
 }
 
-cv::Mat Lanes::Canny()
+cv::Mat Lanes::Canny(cv::Mat img)
 {
-	cv::Mat img;
-	std::string path_img = this->_path_img;
-	img = cv::imread(path_img,1);
-
 	// Chage to Grayscale
 	cv::Mat GrayScale;
 	cv::cvtColor(img, GrayScale, cv::COLOR_RGB2GRAY);
-
+	cv::imshow("Video aa", GrayScale);
 	// Reduce noise ( Using GassianBlur -> Smooth)
 	cv::Mat GaussianBlur;
 	cv::Size ksize = {5,5};
 	cv::GaussianBlur(GrayScale, GaussianBlur, ksize, 0);
 	
 	// Detect edges
-	cv::Canny(GaussianBlur, img, 50, 150);
+	cv::Canny(GaussianBlur, img, 20, 150);
 	return img;	
 }
 
@@ -196,4 +184,82 @@ cv::Vec4i Lanes::make_coordinates(cv::Mat img, cv::Point2f point)
 
 	results = {x1, y1, x2, y2};
 	return results;
+}
+
+void Lanes::VideoCapture(std::string path)
+{
+    cv::VideoCapture cap(path);
+    if (!cap.isOpened()) {
+        std::cerr << "Error: Could not open video file." << std::endl;
+        return;
+    }
+
+    cv::Mat frame;
+    int frameWidth = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int frameHeight = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+    double fps = cap.get(cv::CAP_PROP_FPS);
+    std::cout << "Frame size: " << frameWidth << "x" << frameHeight << ", FPS: " << fps << std::endl;
+
+    // Create a window to display the video
+    cv::namedWindow("Video", cv::WINDOW_AUTOSIZE);
+
+    while (true) {
+        cap >> frame;
+
+        if (frame.empty()) {
+            std::cerr << "Error: Empty frame." << std::endl;
+            break;
+        }
+
+        Lanes lane;
+        cv::Mat canny = lane.Canny(frame);
+
+        // Check if the Canny result is valid
+        if (canny.empty()) {
+            std::cerr << "Error: Canny result is empty." << std::endl;
+            break;
+        }
+
+        cv::Mat crop_img = lane.RoI(canny);
+
+        // Check if the cropped image is valid
+        if (crop_img.empty()) {
+            std::cerr << "Error: Cropped image is empty." << std::endl;
+            break;
+        }
+		
+        std::vector<cv::Vec4i> lines;
+        cv::HoughLinesP(crop_img, lines, 2, CV_PI / 180, 100, 40, 5);
+
+        // Check if lines were detected
+        if (lines.empty()) {
+            std::cerr << "Warning: No lines detected." << std::endl;
+            continue; // Skip this frame and go to the next one
+        }
+		
+        std::vector<cv::Vec4i> average_lines = lane.average_slope_intercept(frame, lines);
+        cv::Mat lane_lines = lane.getlinesImg(frame, average_lines);
+
+        // Check if lane lines image is valid
+        if (lane_lines.empty()) {
+            std::cerr << "Error: Lane lines image is empty." << std::endl;
+            break;
+        }
+
+        // Ensure img is valid before adding weighted sum
+        if (!frame.empty() && !lane_lines.empty()) {
+            cv::addWeighted(frame, 0.8, lane_lines, 1, 1, frame);
+        } else {
+            std::cerr << "Error: One of the images for addWeighted is empty." << std::endl;
+            break;
+        }
+
+        cv::imshow("Video 1", frame);
+        if (cv::waitKey(30) >= 0) {
+            break;
+        }
+    }
+
+    cap.release();
+    cv::destroyWindow("Video");
 }
